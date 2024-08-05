@@ -1,40 +1,21 @@
-# Copyright 2024 Google LLC
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     https://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 import asyncio
 from typing import Literal, Optional
-
 from neo4j import AsyncDriver, AsyncGraphDatabase
 from pydantic import BaseModel
-
+import ssl
 import models
-
 from .. import datastore
 
 NEO4J_IDENTIFIER = "neo4j"
-
 
 class AuthConfig(BaseModel):
     username: str
     password: str
 
-
 class Config(BaseModel, datastore.AbstractConfig):
     kind: Literal["neo4j"]
     uri: str
     auth: AuthConfig
-
 
 class Client(datastore.Client[Config]):
     __driver: AsyncDriver
@@ -68,28 +49,74 @@ class Client(datastore.Client[Config]):
         async def delete_all(tx):
             await tx.run("MATCH (n) DETACH DELETE n")
 
-        async def create_amenities(tx, amenities):
-            for amenity in amenities:
-                await tx.run(
-                    """
-                    CREATE (a:Amenity {id: $id, name: $name, description: $description, location: $location, terminal: $terminal, category: $category, hour: $hour})
-                    """,
-                    id=amenity.id,
-                    name=amenity.name,
-                    description=amenity.description,
-                    location=amenity.location,
-                    terminal=amenity.terminal,
-                    category=amenity.category,
-                    hour=amenity.hour,
-                )
+        async def create_airport(tx, airport):
+            await tx.run(
+                """
+                CREATE (a:Airport {id: $id, iata: $iata, name: $name, city: $city, country: $country})
+                """,
+                id=airport.id,
+                iata=airport.iata,
+                name=airport.name,
+                city=airport.city,
+                country=airport.country,
+            )
+
+        async def create_amenity(tx, amenity):
+            await tx.run(
+                """
+                CREATE (a:Amenity {id: $id, name: $name, description: $description, location: $location, terminal: $terminal, category: $category, hour: $hour})
+                """,
+                id=amenity.id,
+                name=amenity.name,
+                description=amenity.description,
+                location=amenity.location,
+                terminal=amenity.terminal,
+                category=amenity.category,
+                hour=amenity.hour,
+            )
+
+        async def create_flight(tx, flight):
+            await tx.run(
+                """
+                CREATE (f:Flight {id: $id, airline: $airline, flight_number: $flight_number, departure_airport: $departure_airport, arrival_airport: $arrival_airport, departure_time: $departure_time, arrival_time: $arrival_time, departure_gate: $departure_gate, arrival_gate: $arrival_gate})
+                """,
+                id=flight.id,
+                airline=flight.airline,
+                flight_number=flight.flight_number,
+                departure_airport=flight.departure_airport,
+                arrival_airport=flight.arrival_airport,
+                departure_time=flight.departure_time,
+                arrival_time=flight.arrival_time,
+                departure_gate=flight.departure_gate,
+                arrival_gate=flight.arrival_gate,
+            )
+
+        async def create_policy(tx, policy):
+            await tx.run(
+                """
+                CREATE (p:Policy {id: $id, content: $content, embedding: $embedding})
+                """,
+                id=policy.id,
+                content=policy.content,
+                embedding=policy.embedding,
+            )
 
         async with self.__driver.session() as session:
-            # Delete all exsiting nodes and relationships
+            # Delete all existing nodes and relationships
             await session.execute_write(delete_all)
 
-            await asyncio.gather(
-                session.execute_write(create_amenities, amenities),
-            )
+            # Initialize data sequentially to avoid concurrency issues
+            for airport in airports:
+                await session.execute_write(create_airport, airport)
+
+            for amenity in amenities:
+                await session.execute_write(create_amenity, amenity)
+
+            for flight in flights:
+                await session.execute_write(create_flight, flight)
+
+            for policy in policies:
+                await session.execute_write(create_policy, policy)
 
     async def export_data(self) -> tuple[
         list[models.Airport],
@@ -97,7 +124,7 @@ class Client(datastore.Client[Config]):
         list[models.Flight],
         list[models.Policy],
     ]:
-        raise NotImplementedError("This client does not support airports.")
+        raise NotImplementedError("This client does not support export data.")
 
     async def get_airport_by_id(self, id: int) -> Optional[models.Airport]:
         raise NotImplementedError("This client does not support airports.")
@@ -129,7 +156,7 @@ class Client(datastore.Client[Config]):
     async def amenities_search(
         self, query_embedding: list[float], similarity_threshold: float, top_k: int
     ) -> list[dict]:
-        raise NotImplementedError("This client does not support amenities.")
+        raise NotImplementedError("This client does not support amenities search.")
 
     async def get_flight(self, flight_id: int) -> Optional[models.Flight]:
         raise NotImplementedError("This client does not support flights.")
@@ -176,7 +203,10 @@ class Client(datastore.Client[Config]):
     async def policies_search(
         self, query_embedding: list[float], similarity_threshold: float, top_k: int
     ) -> list[str]:
-        raise NotImplementedError("This client does not support policies.")
+        raise NotImplementedError("This client does not support policies search.")
 
     async def close(self):
-        await self.__driver.close()
+        try:
+            await self.__driver.close()
+        except ssl.SSLError as e:
+            logging.error(f"SSL error occurred during closing: {e}")

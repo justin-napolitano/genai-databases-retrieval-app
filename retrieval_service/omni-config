@@ -1,0 +1,11 @@
+host: 0.0.0.0
+datastore:
+  # Example for AlloyDB
+  kind: "alloydb-postgres"
+  project: "strategic-kite-431518-d8"
+  region: "us-central1"
+  cluster: "jayburd"
+  instance: "jayburd"
+  database: "assistantdemo"
+  user: "postgres"
+  password: "Kjiox35,625xp21"

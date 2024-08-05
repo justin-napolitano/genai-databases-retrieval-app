@@ -55,16 +55,18 @@ steps:
 substitutions:
   _DATABASE_NAME: test_${SHORT_SHA}
   _DATABASE_USER: postgres
-  _ALLOYDB_REGION: "us-central1"
-  _ALLOYDB_CLUSTER: "my-alloydb-cluster"
-  _ALLOYDB_INSTANCE: "my-alloydb-instance"
-
+  _ALLOYDB_REGION: us-central1
+  _ALLOYDB_CLUSTER: jayburd
+  _ALLOYDB_INSTANCE: jayburd
+# projects/222837108130/secrets/alloy_db_pass
 availableSecrets:
   secretManager:
-    - versionName: projects/$PROJECT_ID/secrets/alloy_db_user/versions/latest
+    - versionName: projects/222837108130/secrets/alloy_db_user/versions/1
       env: DB_USER
-    - versionName: projects/$PROJECT_ID/secrets/alloy_db_pass/versions/latest
+    - versionName: projects/222837108130/secrets/alloy_db_pass/versions/1
       env: DB_PASS
+
+      # projects/222837108130/secrets/alloy_db_pass/versions/1
 
 options:
   automapSubstitutions: true

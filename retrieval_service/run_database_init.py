@@ -1,22 +1,9 @@
-# Copyright 2023 Google LLC
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     https://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 import asyncio
-
+import logging
 import datastore
 from app import parse_config
 
+logging.basicConfig(level=logging.DEBUG)
 
 async def main() -> None:
     airports_ds_path = "../data/airport_dataset.csv"
@@ -26,14 +13,28 @@ async def main() -> None:
 
     cfg = parse_config("config.yml")
     ds = await datastore.create(cfg.datastore)
-    airports, amenities, flights, policies = await ds.load_dataset(
-        airports_ds_path, amenities_ds_path, flights_ds_path, policies_ds_path
-    )
-    await ds.initialize_data(airports, amenities, flights, policies)
-    await ds.close()
 
-    print("database init done.")
+    try:
+        logging.info("Loading datasets...")
+        airports, amenities, flights, policies = await ds.load_dataset(
+            airports_ds_path, amenities_ds_path, flights_ds_path, policies_ds_path
+        )
+        logging.info("Datasets loaded successfully.")
+    except Exception as e:
+        logging.error(f"Error loading datasets: {e}")
+        return
 
+    try:
+        logging.info("Initializing data...")
+        await ds.initialize_data(airports, amenities, flights, policies)
+        logging.info("Data initialized successfully.")
+    except Exception as e:
+        logging.error(f"Error initializing data: {e}")
+    finally:
+        await ds.close()
+        logging.info("Database connection closed.")
+
+    print("Database init done.")
 
 if __name__ == "__main__":
     asyncio.run(main())
