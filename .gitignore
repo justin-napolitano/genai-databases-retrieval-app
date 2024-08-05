@@ -15,5 +15,6 @@ __pycache__/
 .mypy_cache/
 .pytest_cache/
 
-*config*
 vars.sh
+config.yaml
+*.txt
